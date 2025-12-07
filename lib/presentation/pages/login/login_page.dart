@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 60.h),
 
               // ---------------------------------------------------------
-              // LOGO CIRCULAR CON IMAGEN (RECOMENDACIÓN APLICADA)
+              // LOGO CIRCULAR CON IMAGEN
               // ---------------------------------------------------------
               Container(
                 width: 120.w,
