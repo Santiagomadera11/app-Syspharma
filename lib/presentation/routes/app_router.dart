@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-// Imports corregidos según tu estructura de carpetas:
 import '../blocs/auth/auth_bloc.dart';
 import '../pages/appointments/appointments_page.dart';
 import '../pages/dashboard/dashboard_page.dart';
-// Nota cómo ahora entramos a la carpeta específica de cada página:
+// Páginas
 import '../pages/login/login_page.dart';
 import '../pages/products/products_page.dart';
+import '../pages/profile/change_password_page.dart';
+import '../pages/profile/edit_profile_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/reports/reports_page.dart';
-import '../widgets/scaffold_with_navbar.dart';
+import '../widgets/scaffold_with_navbar.dart'; 
+
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter createRouter(AuthBloc authBloc) {
@@ -32,7 +34,6 @@ GoRouter createRouter(AuthBloc authBloc) {
         path: '/login',
         builder: (context, state) => const LoginPage(),
       ),
-      // ShellRoute mantiene la BottomNavigationBar
       ShellRoute(
         builder: (context, state, child) {
           return ScaffoldWithNavBar(child: child);
@@ -45,11 +46,20 @@ GoRouter createRouter(AuthBloc authBloc) {
           GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
         ],
       ),
+      
+
+      GoRoute(
+        path: '/edit-profile',
+        builder: (context, state) => const EditProfilePage(),
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordPage(),
+      ),
     ],
   );
 }
 
-// Clase auxiliar para escuchar el Stream del Bloc en GoRouter
 class StreamListenable extends ChangeNotifier {
   final Stream stream;
   StreamListenable(this.stream) {

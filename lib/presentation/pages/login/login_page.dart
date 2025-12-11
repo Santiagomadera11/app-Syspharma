@@ -29,51 +29,53 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: 60.h),
-
-              // ---------------------------------------------------------
-              // LOGO CIRCULAR CON IMAGEN
-              // ---------------------------------------------------------
-              Container(
+              
+  
+              SizedBox(
+                height: 120.h,
                 width: 120.w,
-                height: 120.w,
-                padding: EdgeInsets.all(8.w),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/Farmacenter la 10.png',  // <-- Asegúrate de tener esta imagen
-                    fit: BoxFit.cover,
+                child: Image.asset(
+                  'assets/images/Farmacenter la 10.png', 
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.primary, width: 2),
+                    ),
+                    child: Center(
+                      child: Icon(Icons.local_pharmacy, size: 60.w, color: AppColors.primary),
+                    ),
                   ),
                 ),
               ),
-
+              
               SizedBox(height: 40.h),
-
+              
+        
               Text(
-                "Log In",
-                style: TextStyle(
-                  fontSize: 28.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                "Iniciar Sesión", 
+                style: TextStyle(fontSize: 28.sp, fontWeight: FontWeight.bold, color: Colors.black)
               ),
-
+              
               SizedBox(height: 30.h),
 
-              // Campo Usuario
+             
               _buildTextField(
-                controller: _userController,
-                hint: 'Username / Email',
+                controller: _userController, 
+                hint: 'Usuario / Correo', // Antes: Username / Email
+                icon: null
               ),
               SizedBox(height: 16.h),
-
-              // Campo Contraseña
+              
+              
               _buildTextField(
-                controller: _passController,
-                hint: 'Password',
-                isPassword: true,
+                controller: _passController, 
+                hint: 'Contraseña', // Antes: Password
+                isPassword: true
               ),
               SizedBox(height: 10.h),
 
-              // Remember Me
+             
               Row(
                 children: [
                   SizedBox(
@@ -82,82 +84,57 @@ class _LoginPageState extends State<LoginPage> {
                     child: Checkbox(
                       value: _rememberMe,
                       activeColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      onChanged: (v) =>
-                          setState(() => _rememberMe = v!),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      onChanged: (v) => setState(() => _rememberMe = v!),
                     ),
                   ),
                   SizedBox(width: 8.w),
-                  Text("Remember me", style: TextStyle(fontSize: 14.sp)),
+                  Text("Recordarme", style: TextStyle(fontSize: 14.sp)), 
                 ],
               ),
-
+              
               SizedBox(height: 24.h),
 
-              // Botón Login
+            
               SizedBox(
                 width: double.infinity,
                 height: 50.h,
                 child: ElevatedButton(
                   onPressed: () {
                     context.read<AuthBloc>().add(
-                          LoginRequested(
-                            _userController.text,
-                            _passController.text,
-                          ),
-                        );
+                      LoginRequested(_userController.text, _passController.text)
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
                   child: Text(
-                    "Log In",
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    "Iniciar Sesión", 
+                    style: TextStyle(fontSize: 16.sp, color: Colors.white, fontWeight: FontWeight.w600)
                   ),
                 ),
               ),
 
               SizedBox(height: 20.h),
-
-              // Texto Sign Up
+              
+              // TEXTO DE REGISTRO 
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    "Don't have an account? ",
-                    style: TextStyle(color: Colors.grey, fontSize: 14.sp),
-                  ),
+                  Text("¿No tienes cuenta? ", style: TextStyle(color: Colors.grey, fontSize: 14.sp)),
                   GestureDetector(
-                    onTap: () {},
-                    child: Text(
-                      "Sign Up",
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14.sp,
-                      ),
-                    ),
+                    onTap: () {}, 
+                    child: Text("Regístrate", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14.sp)),
                   ),
                 ],
               ),
 
               SizedBox(height: 40.h),
-              Text(
-                "or connect with",
-                style: TextStyle(color: Colors.grey, fontSize: 14.sp),
-              ),
+              Text("o conecta con", style: TextStyle(color: Colors.grey, fontSize: 14.sp)),
               SizedBox(height: 20.h),
 
-              // Botones Redes Sociales
+              // BOTONES REDES SOCIALES
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -174,14 +151,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ==========================
-  // WIDGET: Input reutilizable
-  // ==========================
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    bool isPassword = false,
-  }) {
+  Widget _buildTextField({required TextEditingController controller, required String hint, bool isPassword = false, IconData? icon}) {
     return TextField(
       controller: controller,
       obscureText: isPassword && _obscureText,
@@ -189,9 +159,9 @@ class _LoginPageState extends State<LoginPage> {
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400]),
         filled: true,
-        fillColor: AppColors.inputFill,
-        contentPadding:
-            EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+        
+        fillColor: const Color(0xFFF0F5F5), 
+        contentPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
@@ -204,43 +174,26 @@ class _LoginPageState extends State<LoginPage> {
           borderRadius: BorderRadius.circular(30),
           borderSide: const BorderSide(color: AppColors.primary),
         ),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  _obscureText
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  color: Colors.grey,
-                ),
-                onPressed: () =>
-                    setState(() => _obscureText = !_obscureText),
-              )
-            : null,
+        suffixIcon: isPassword 
+          ? IconButton(
+              icon: Icon(_obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
+              onPressed: () => setState(() => _obscureText = !_obscureText),
+            )
+          : null,
       ),
     );
   }
 
-  // ==========================
-  // Botones de redes sociales
-  // ==========================
   Widget _socialButton(IconData icon, Color color) {
     return Container(
-      width: 50.w,
+      width: 50.w, 
       height: 50.w,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          )
-        ],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0,5))]
       ),
-      child: Center(
-        child: Icon(icon, color: color),
-      ),
+      child: Center(child: Icon(icon, color: color)),
     );
   }
 }

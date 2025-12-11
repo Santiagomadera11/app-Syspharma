@@ -34,7 +34,7 @@ class Authenticated extends AuthState {
 }
 class Unauthenticated extends AuthState {}
 
-// BLoC
+
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc() : super(AuthInitial()) {
     on<LoginRequested>(_onLogin);
@@ -43,16 +43,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   void _onLogin(LoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    await Future.delayed(const Duration(seconds: 1)); // Simular red
+    await Future.delayed(const Duration(seconds: 1)); 
 
-    // Lógica Mock: "admin" para Admin, cualquier otro para Empleado
+
     if (event.username.toLowerCase() == 'admin') {
-      emit(const Authenticated( UserEntity(
-        id: '1', name: 'Ricardo Torres', email: 'admin@syspharma.com', role: UserRole.admin
+      // AQUÍ ESTÁ EL CAMBIO:
+      emit(const Authenticated(UserEntity(
+        id: '1', 
+        name: 'Jairo Sanchez',
+        email: 'admin@syspharma.com', 
+        role: UserRole.admin
       )));
     } else {
-      emit(const Authenticated( UserEntity(
-        id: '2', name: 'Santiago', email: 'emp@syspharma.com', role: UserRole.employee
+      emit(const Authenticated(UserEntity(
+        id: '2', 
+        name: 'Santiago', 
+        email: 'emp@syspharma.com', 
+        role: UserRole.employee
       )));
     }
   }

@@ -54,7 +54,7 @@ class _ProductsPageState extends State<ProductsPage> {
         bool matchesTab = true;
         
         if (_selectedTab == -1) {
-          matchesTab = true; // Si es -1, mostramos TODO
+          matchesTab = true; // Si es -1, mostramos 
         } else if (_selectedTab == 0) {
           matchesTab = product['stock'] == 'low';
         } else if (_selectedTab == 1) {
@@ -169,7 +169,7 @@ class _ProductsPageState extends State<ProductsPage> {
         padding: EdgeInsets.symmetric(vertical: 12.h),
         decoration: BoxDecoration(
           // Si está seleccionado: Fondo verde clarito. Si no: Blanco.
-          color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.white,
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             // Si está seleccionado: Borde verde. Si no: Transparente (o gris muy suave)
@@ -178,7 +178,7 @@ class _ProductsPageState extends State<ProductsPage> {
           ),
           boxShadow: isSelected 
             ? [] 
-            : [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 5)],
+            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.05), blurRadius: 5)],
         ),
         child: Center(
           child: Text(
@@ -202,7 +202,7 @@ class _ProductsPageState extends State<ProductsPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
