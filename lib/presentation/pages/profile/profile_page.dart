@@ -6,7 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../domain/entities/user.dart';
 import '../../blocs/auth/auth_bloc.dart';
-
+// AGREGA ESTA LÍNEA:
+import '../../blocs/auth/auth_state.dart';
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 

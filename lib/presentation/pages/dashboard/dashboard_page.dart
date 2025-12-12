@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-
 import '../../../core/constants/app_colors.dart';
 import '../../../domain/entities/user.dart';
 import '../../blocs/auth/auth_bloc.dart';
-
+// ESTA ES LA LÍNEA QUE TE FALTA O ESTÁ FALLANDO:
+import '../../blocs/auth/auth_state.dart';
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 

@@ -35,17 +35,28 @@ dependencies:
   table_calendar: ^3.1.2
   
   # Auth
-  google_sign_in: ^6.1.6
-  sign_in_with_apple: ^5.0.0
+
   font_awesome_flutter: ^10.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  
+  # HERRAMIENTA PARA GENERAR ICONOS
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/
+
+# CONFIGURACIÓN DEL ICONO
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/icono.png" # Asegúrate de que esta imagen exista
+  min_sdk_android: 21
+  adaptive_icon_background: "#ffffff" # Fondo blanco para Android nuevos
+  adaptive_icon_foreground: "assets/images/icono.png"

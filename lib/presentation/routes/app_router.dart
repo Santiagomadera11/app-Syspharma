@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../blocs/auth/auth_bloc.dart';
+import '../blocs/auth/auth_state.dart';
 import '../pages/appointments/appointments_page.dart';
 import '../pages/dashboard/dashboard_page.dart';
 // Páginas
