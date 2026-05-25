@@ -3,292 +3,341 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../domain/entities/user.dart';
 import '../../blocs/auth/auth_bloc.dart';
-// ESTA ES LA LÍNEA QUE TE FALTA O ESTÁ FALLANDO:
 import '../../blocs/auth/auth_state.dart';
-class DashboardPage extends StatelessWidget {
+import '../../../data/services/dashboard_service.dart';
+import '../../../data/models/dashboard_models.dart';
+import '../../../data/services/product_service.dart';
+import '../../../data/services/appointment_service.dart';
+import '../../../data/models/product_model.dart';
+import '../../../data/models/appointment_model.dart';
+
+// Modelo simple para manejar la lista de notificaciones
+class AppNotification {
+  final String title;
+  final String message;
+  final IconData icon;
+  final Color color;
+  AppNotification({required this.title, required this.message, required this.icon, required this.color});
+}
+
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final DashboardService _service = DashboardService();
+  final ProductService _productService = ProductService();
+  final AppointmentService _appointmentService = AppointmentService();
+  
+  bool _isLoading = true;
+  String _activePeriod = 'Mes'; // 'Sem' | 'Mes' | 'Año'
+  
+  double _displayTotal = 0;
+  int _displayCitas = 0;
+  
+  List<VentaModel> _allVentas = [];
+  List<AppointmentModel> _allAppts = [];
+  List<ChartData> _chartData = [];
+  final List<AppNotification> _realNotifications = [];
+  
+  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'es_CO', symbol: '\$', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final ventas = await _service.getVentas();
+      final productos = await _productService.getAllProducts();
+      final appts = await _appointmentService.getAppointments();
+
+      _allVentas = ventas;
+      _allAppts = appts;
+      
+      _generateNotifications(productos, appts);
+      _updateDashboardByPeriod(_activePeriod);
+
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint('Error cargando API: $e');
+    }
+  }
+
+  // Lógica para filtrar datos según el botón presionado (Semana, Mes, Año)
+  void _updateDashboardByPeriod(String period) {
+    DateTime now = DateTime.now();
+    List<VentaModel> filteredVentas = [];
+    
+    if (period == 'Sem') {
+      DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      filteredVentas = _allVentas.where((v) => v.fecha.isAfter(startOfWeek)).toList();
+    } else if (period == 'Mes') {
+      filteredVentas = _allVentas.where((v) => v.fecha.month == now.month && v.fecha.year == now.year).toList();
+    } else { // Año
+      filteredVentas = _allVentas.where((v) => v.fecha.year == now.year).toList();
+    }
+
+    setState(() {
+      _activePeriod = period;
+      _displayTotal = filteredVentas.fold(0.0, (prev, v) => prev + v.total);
+      _displayCitas = _allAppts.where((a) => _isWithinPeriod(a.fecha, period)).length;
+      _chartData = _generateChartData(filteredVentas, period);
+      _isLoading = false;
+    });
+  }
+
+  bool _isWithinPeriod(String dateStr, String period) {
+    try {
+      DateTime d = DateTime.parse(dateStr);
+      DateTime now = DateTime.now();
+      if (period == 'Sem') return d.isAfter(now.subtract(const Duration(days: 7)));
+      if (period == 'Mes') return d.month == now.month;
+      return d.year == now.year;
+    } catch (_) { return false; }
+  }
+
+  List<ChartData> _generateChartData(List<VentaModel> ventas, String period) {
+    if (period == 'Año') {
+      // Agrupar por meses
+      return List.generate(6, (i) {
+        DateTime monthDate = DateTime(DateTime.now().year, DateTime.now().month - 5 + i, 1);
+        double sum = ventas.where((v) => v.fecha.month == monthDate.month).fold(0, (p, c) => p + c.total);
+        return ChartData(_getMesNombre(monthDate.month), sum);
+      });
+    } else {
+      // Agrupar por días (últimos 6 puntos)
+      return List.generate(6, (i) {
+        DateTime dayDate = DateTime.now().subtract(Duration(days: 5 - i));
+        double sum = ventas.where((v) => v.fecha.day == dayDate.day).fold(0, (p, c) => p + c.total);
+        return ChartData("${dayDate.day}", sum);
+      });
+    }
+  }
+
+  String _getMesNombre(int mes) {
+    const nombres = ['', 'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    return nombres[mes];
+  }
+
+  void _generateNotifications(List<ProductModel> products, List<AppointmentModel> appts) {
+    _realNotifications.clear();
+    // 1. Stock Crítico
+    for (var p in products.where((p) => p.stock == 0).take(3)) {
+      _realNotifications.add(AppNotification(
+        title: 'Stock Crítico: ${p.nombre}',
+        message: 'Quedan 0 unidades. Reponer urgente.',
+        icon: Icons.inventory_2_outlined, color: Colors.red,
+      ));
+    }
+    // 2. Stock Bajo
+    for (var p in products.where((p) => p.stock > 0 && p.stock < 10).take(2)) {
+      _realNotifications.add(AppNotification(
+        title: 'Stock Bajo: ${p.nombre}',
+        message: 'Quedan ${p.stock} unidades.',
+        icon: Icons.warning_amber_rounded, color: Colors.orange,
+      ));
+    }
+    // 3. Cita hoy
+    if (appts.isNotEmpty) {
+      _realNotifications.add(AppNotification(
+        title: 'Próxima Cita',
+        message: '${appts.first.pacienteNombre} - ${appts.first.hora}',
+        icon: Icons.calendar_today, color: AppColors.primary,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        String userName = "Usuario";
+        String userName = 'Usuario';
         UserRole role = UserRole.employee;
-
         if (state is Authenticated) {
           userName = state.user.name;
           role = state.user.role;
         }
 
+        if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
         return Scaffold(
           backgroundColor: AppColors.background,
           body: SafeArea(
-            child: role == UserRole.admin
-                ? _buildAdminView(context, userName)
-                : _buildEmployeeView(context, userName),
-          ),
-        );
-      },
-    );
-  }
-
-
-  Widget _buildEmployeeView(BuildContext context, String userName) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(context, userName, "Resumen de hoy", showBell: false),
-          SizedBox(height: 25.h),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryCard(
-                  title: "Ventas del día",
-                  value: "\$12.3M",
-                  color: const Color(0xFFE0F7FA),
-                  imagePath: 'assets/images/woman_pharmacist.png',
-                  customIcon: Icons.storefront_outlined,
-                  onTap: () => context.go('/reports'),
-                ),
-              ),
-              SizedBox(width: 16.w),
-              Expanded(
-                child: _buildSummaryCard(
-                  title: "Citas Agendadas",
-                  value: "05",
-                  isAppointment: true,
-                  color: const Color(0xFFE8F5E9),
-                  imagePath: 'assets/images/man_pharmacist.png',
-                  customIcon: Icons.calendar_month_outlined,
-                  onTap: () => context.go('/appointments'),
-                ),
-              ),
-            ],
-          ),
-          
-          SizedBox(height: 30.h),
-          
-          Text("Ventas Mensuales",
-              style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
-          SizedBox(height: 15.h),
-          
-          _buildChartSection(),
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildAdminView(BuildContext context, String userName) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(context, userName, "Panel Gerencial", showBell: true),
-          SizedBox(height: 25.h),
-          
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryCard(
-                  title: "Ventas Totales",
-                  value: "\$45.2M",
-                  color: const Color(0xFFE0F7FA),
-                  imagePath: 'assets/images/woman_pharmacist.png',
-                  customIcon: Icons.storefront,
-                  onTap: () => context.go('/reports'),
-                ),
-              ),
-              SizedBox(width: 16.w),
-              Expanded(
-                child: _buildSummaryCard(
-                  title: "Citas",
-                  value: "12",
-                  isAppointment: true,
-                  color: const Color(0xFFE8F5E9),
-                  imagePath: 'assets/images/man_pharmacist.png',
-                  customIcon: Icons.calendar_today,
-                  onTap: () => context.go('/appointments'),
-                ),
-              ),
-            ],
-          ),
-
-          SizedBox(height: 30.h),
-          Text("Ventas Mensuales",
-              style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87)),
-          SizedBox(height: 15.h),
-          _buildChartSection(),
-        ],
-      ),
-    );
-  }
-
-
-
-  Widget _buildHeader(BuildContext context, String name, String subtitle, {required bool showBell}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Hola ${name.split(' ')[0]}",
-                style: TextStyle(
-                    fontSize: 24.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87)),
-            SizedBox(height: 4.h),
-            Text(subtitle,
-                style: TextStyle(fontSize: 14.sp, color: Colors.grey[600])),
-          ],
-        ),
-        
-        if (showBell)
-          GestureDetector(
-            onTap: () => _showNotificationsSheet(context),
-            child: Container(
-              padding: EdgeInsets.all(8.w),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10)
-                  ]),
-              child: Stack(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(20.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.notifications_outlined, size: 24.sp, color: Colors.black87),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 10.w,
-                      height: 10.w,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5)
-                      ),
-                    ),
-                  )
+                  _buildHeader(context, userName, role == UserRole.admin ? "Panel Gerencial" : "Resumen de hoy"),
+                  SizedBox(height: 25.h),
+                  
+                  // Selector de Periodo (Sem, Mes, Año)
+                  _buildPeriodSelector(),
+                  
+                  SizedBox(height: 15.h),
+                  Row(
+                    children: [
+                      Expanded(child: _buildSummaryCard(
+                        title: "Ventas ($_activePeriod)",
+                        value: _currencyFormat.format(_displayTotal),
+                        color: const Color(0xFFE0F7FA),
+                        customIcon: Icons.storefront_outlined,
+                        onTap: () => context.go('/reports'),
+                      )),
+                      SizedBox(width: 16.w),
+                      Expanded(child: _buildSummaryCard(
+                        title: "Citas ($_activePeriod)",
+                        value: _displayCitas.toString().padLeft(2, '0'),
+                        color: const Color(0xFFE8F5E9),
+                        customIcon: Icons.calendar_month_outlined,
+                        onTap: () => context.go('/appointments'),
+                      )),
+                    ],
+                  ),
+                  SizedBox(height: 30.h),
+                  Text("Rendimiento de Ventas", style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 15.h),
+                  _buildChartSection(_chartData),
                 ],
               ),
             ),
           ),
-      ],
+        );
+      },
     );
   }
 
-  // MODAL DE NOTIFICACIONES CORREGIDO (CON SCROLL)
+  Widget _buildPeriodSelector() {
+    return Container(
+      padding: EdgeInsets.all(4.w),
+      decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(15)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ['Sem', 'Mes', 'Año'].map((p) {
+          bool active = _activePeriod == p;
+          return GestureDetector(
+            onTap: () => _updateDashboardByPeriod(p),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: active ? Colors.white : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: active ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : null,
+              ),
+              child: Text(p, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: active ? Colors.black : Colors.grey)),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   void _showNotificationsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, 
+      isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) {
-
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(20.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40.w,
-                    height: 4.h,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20.h),
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Centro de Notificaciones", style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10)
-                      ),
-                      child: Text("3 Nuevas", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12.sp)),
-                    )
-                  ],
-                ),
-                
-                SizedBox(height: 15.h),
-                
-                _buildNotificationItem(
-                  title: "Stock Crítico: Amoxicilina",
-                  message: "Quedan 0 unidades. Reponer inmediatamente.",
-                  icon: Icons.inventory_2_outlined,
-                  color: Colors.red,
-                ),
-                
-                _buildNotificationItem(
-                  title: "Stock Bajo: Paracetamol",
-                  message: "Quedan 5 unidades. Considerar reponer.",
-                  icon: Icons.warning_amber_rounded,
-                  color: Colors.orange,
-                ),
-                
-                _buildNotificationItem(
-                  title: "Nueva Cita Agendada",
-                  message: "Mateo Hernandez - Vacunación (11:30 AM)",
-                  icon: Icons.calendar_today,
-                  color: AppColors.primary,
-                ),
-                
-                SizedBox(height: 20.h),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                    ),
-                    child: const Text("Cerrar", style: TextStyle(color: Colors.black)),
-                  ),
-                ),
-                
-                // Espacio extra al final para seguridad
-                SizedBox(height: 20.h),
-              ],
-            ),
+        return Container(
+          padding: EdgeInsets.all(20.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Centro de Notificaciones", style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+              SizedBox(height: 20.h),
+              if (_realNotifications.isEmpty)
+                const Padding(padding: EdgeInsets.all(20), child: Text("No hay alertas pendientes"))
+              else
+                ..._realNotifications.map((n) => _buildNotificationItem(
+                  title: n.title, message: n.message, icon: n.icon, color: n.color
+                )),
+              SizedBox(height: 20.h),
+              SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text("Cerrar")))
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildNotificationItem({
-    required String title, 
-    required String message, 
-    required IconData icon, 
-    required Color color
-  }) {
+  Widget _buildHeader(BuildContext context, String name, String subtitle) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Hola ${name.split(' ')[0]}", style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold)),
+            Text(subtitle, style: TextStyle(fontSize: 14.sp, color: Colors.grey[600])),
+          ],
+        ),
+        GestureDetector(
+          onTap: () => _showNotificationsSheet(context),
+          child: Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            child: Badge(
+              label: Text(_realNotifications.length.toString()),
+              isLabelVisible: _realNotifications.isNotEmpty,
+              child: Icon(Icons.notifications_outlined, size: 24.sp),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartSection(List<ChartData> data) {
+    return Container(
+      height: 250.h,
+      padding: EdgeInsets.all(10.w),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: SfCartesianChart(
+        primaryXAxis: const CategoryAxis(majorGridLines: MajorGridLines(width: 0)),
+        primaryYAxis: const NumericAxis(isVisible: false),
+        series: <CartesianSeries>[
+          SplineSeries<ChartData, String>(
+            dataSource: data,
+            xValueMapper: (ChartData d, _) => d.x,
+            yValueMapper: (ChartData d, _) => d.y,
+            color: AppColors.primary, width: 4,
+            markerSettings: const MarkerSettings(isVisible: true),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard({required String title, required String value, required Color color, required IconData customIcon, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(24)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(customIcon, size: 30.sp, color: AppColors.primary),
+            SizedBox(height: 20.h),
+            Text(title, style: TextStyle(fontSize: 12.sp, color: Colors.black54)),
+            Text(value, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black87)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem({required String title, required String message, required IconData icon, required Color color}) {
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(12.w),
@@ -299,177 +348,16 @@ class DashboardPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle
-            ),
-            child: Icon(icon, color: color, size: 22.sp),
-          ),
+          Icon(icon, color: color),
           SizedBox(width: 15.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp, color: Colors.black87)),
-                SizedBox(height: 3.h),
-                Text(message, style: TextStyle(color: Colors.grey[700], fontSize: 12.sp)),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChartSection() {
-    return Container(
-      height: 250.h,
-      padding: EdgeInsets.all(10.w),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 10))
-          ]),
-      child: SfCartesianChart(
-        plotAreaBorderWidth: 0,
-        primaryXAxis: const CategoryAxis(
-            majorGridLines: MajorGridLines(width: 0),
-            axisLine: AxisLine(width: 0)),
-        primaryYAxis:
-            const NumericAxis(isVisible: false),
-        tooltipBehavior: TooltipBehavior(enable: true),
-        series: <CartesianSeries>[
-          SplineSeries<ChartData, String>(
-            dataSource: const [
-              ChartData('ENE', 15500),
-              ChartData('FEB', 28000),
-              ChartData('MAR', 22400),
-              ChartData('ABR', 32100),
-              ChartData('MAY', 25000),
-              ChartData('JUN', 45000),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(message, style: TextStyle(fontSize: 12.sp, color: Colors.grey[700])),
             ],
-            xValueMapper: (ChartData data, _) => data.x,
-            yValueMapper: (ChartData data, _) => data.y,
-            color: AppColors.primary,
-            width: 4,
-            markerSettings: const MarkerSettings(isVisible: true),
-          )
+          ))
         ],
       ),
-    );
-  }
-
-  Widget _buildSummaryCard({
-    required String title,
-    required String value,
-    required Color color,
-    required String imagePath,
-    bool isAppointment = false,
-    double? height,
-    IconData? customIcon,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: height ?? 210.h, 
-        padding: EdgeInsets.all(16.w),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.05),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: _buildVerticalContent(title, value, imagePath, isAppointment, customIcon),
-      ),
-    );
-  }
-
-  Widget _buildVerticalContent(String title, String value, String imagePath,
-      bool isAppointment, IconData? customIcon) {
-    return Column(
-      children: [
-        Expanded(
-          child: imagePath.isNotEmpty
-              ? Image.asset(
-                  imagePath, 
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      customIcon ?? (isAppointment ? Icons.calendar_month : Icons.storefront),
-                      size: 60.sp,
-                      color: AppColors.primary.withValues(alpha: 0.5),
-                    );
-                  },
-                )
-              : Icon(customIcon ?? Icons.analytics,
-                  size: 50.sp,
-                  color: AppColors.primary.withValues(alpha: 0.5)),
-        ),
-        SizedBox(height: 12.h),
-
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black54)),
-                  SizedBox(height: 4.h),
-                  FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(value,
-                          style: TextStyle(
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87))),
-                ],
-              ),
-            ),
-            SizedBox(width: 8.w),
-            _buildArrowButton(),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildArrowButton() {
-    return Container(
-      width: 36.w,
-      height: 36.w,
-      decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 5,
-                offset: const Offset(0, 2))
-          ]),
-      child: Icon(Icons.arrow_forward_rounded,
-          size: 18.sp, color: AppColors.primary),
     );
   }
 }

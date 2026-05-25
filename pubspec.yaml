@@ -24,6 +24,7 @@ dependencies:
   
   # Utilidades
   shared_preferences: ^2.2.2
+  http: ^1.6.0
   
   # IDIOMA (Requerido por Flutter nuevo)
   intl: ^0.20.0
