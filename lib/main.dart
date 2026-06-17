@@ -8,16 +8,24 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'presentation/blocs/auth/auth_bloc.dart';
 import 'presentation/routes/app_router.dart';
+import 'data/api/auth_api.dart';
 import 'core/constants/app_colors.dart';
 
 void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
-  
 
   await initializeDateFormatting();
 
-  runApp(const SysPharmaApp());
+  final authApi = AuthApi();
+
+  runApp(
+    BlocProvider(
+      create: (context) => AuthBloc(authApi: authApi)
+        ..add(const AuthCheckRequested()),
+      child: const SysPharmaApp(),
+    ),
+  );
 }
 
 class SysPharmaApp extends StatelessWidget {
@@ -30,10 +38,7 @@ class SysPharmaApp extends StatelessWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return BlocProvider(
-          create: (context) => AuthBloc(),
-          child: const AppView(),
-        );
+        return const AppView();
       },
     );
   }

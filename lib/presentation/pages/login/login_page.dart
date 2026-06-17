@@ -54,7 +54,7 @@ class _LoginPageState extends State<LoginPage> {
                   height: 120.h,
                   width: 120.w,
                   child: Image.asset(
-                    'assets/images/Farmacenter la 10.png',
+                    'assets/images/Farmacenterla10.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) => Container(
                       decoration: BoxDecoration(
@@ -73,8 +73,8 @@ class _LoginPageState extends State<LoginPage> {
                 Text("Iniciar Sesión", style: TextStyle(fontSize: 28.sp, fontWeight: FontWeight.bold, color: Colors.black)),
                 SizedBox(height: 30.h),
 
-                // CAMPO USUARIO
-                _buildTextField(controller: _userController, hint: 'Usuario / Correo', icon: null),
+                // CAMPO CORREO
+                _buildTextField(controller: _userController, hint: 'Correo electrónico', icon: null),
                 SizedBox(height: 16.h),
                 
                 // CAMPO CONTRASEÑA
@@ -118,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
                           if (_userController.text.isEmpty || _passController.text.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Por favor ingrese usuario y contraseña"),
+                                content: Text("Por favor ingrese correo y contraseña"),
                                 backgroundColor: Colors.orange,
                               ),
                             );
